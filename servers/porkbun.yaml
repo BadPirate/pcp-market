@@ -1,0 +1,9 @@
+pcp_format: 1
+version: 1
+name: Porkbun
+description: "Porkbun's official MCP server: domain search, registration, renewals and transfers, DNS records, SSL, URL forwarding, hosting and account balance for the owner's Porkbun account."
+url: https://mcp.porkbun.com/mcp
+publicOnly: false
+auth:
+  kind: oauth
+  scope: api offline_access
