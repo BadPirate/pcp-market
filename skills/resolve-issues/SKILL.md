@@ -1,13 +1,16 @@
 ---
 name: resolve-issues
 description: Use when the owner asks to "resolve all open issues" (or a set of them) in a repo. Plan first with multiple-choice questions, then run the work with subagents and one combined test pass before anything reaches a shared branch.
-version: 1
-pcp_format: 1
+version: 2
+pcp_format: 2
 ---
 
 # Resolve issues (plan, then run multi-agent work over a repo's open issues)
 
 Works for any repo. The owner wants a reviewed plan first, multiple-choice questions where the scope is unclear, and execution by subagents with one combined pre-check before anything reaches a shared branch.
+
+## HARD RULE: the full suite runs exactly ONCE
+The full suite (full unit run, build, e2e) runs ONE time per run of this skill: after the LAST workstream has merged into the session branch, immediately before merging into the target branch. Never between waves, never after each merge, never "to be safe", never by a workstream worker, never by the coordinator while waves remain. Between waves the most anyone runs is the fast pre-commit checks (lint, typecheck, format, plus the unit tests next to a change), and the coordinator only runs them after resolving a merge conflict. Work the owner adds mid-run becomes more workstreams merged first, and the single full run moves later; it is not run twice. If you notice you are about to run the full suite and workstreams are still open, stop: that run is wasted and will be repeated.
 
 ## 1. Gather (read-only)
 - List open issues WITH comments: addenda in comments often add whole items. Read any memories or docs an issue references.
@@ -34,7 +37,8 @@ Works for any repo. The owner wants a reviewed plan first, multiple-choice quest
 - Context; then the decisions made (decision log).
 - For each issue: what the issue is, and the architecture of the fix as a pattern (modules, data flow, reused helpers, tests). No code.
 - Execution: workstreams in waves decided ONLY by dependency (a workstream goes in the earliest wave whose prerequisites have merged), never by size or priority, with hotspot files named (merge those one at a time).
-- Verification, and what is out of scope (follow-up issues).
+- Verification: name the ONE full-suite run, after the final merge and just before the target merge (see the hard rule). The plan never schedules a full run between waves.
+- What is out of scope (follow-up issues).
 
 Design rules the owner values:
 - Generalize: no special cases for one site or vendor. Defaults by class of action, with advanced settings tucked away.
@@ -57,12 +61,11 @@ Design rules the owner values:
 - Each workstream gets one general-purpose agent with worktree isolation, on branch ws/<letter>, cut from the session branch's current state so it sees earlier merges.
 - Worktree isolation can cut a worker's worktree from an OLDER commit than the session branch. Every brief names the session-branch sha it needs ("first run `git merge-base --is-ancestor <sha> HEAD`; if it isn't there, `git reset --hard <session branch>` before any work"), and the coordinator checks each worktree's base after launch.
 - Shared repo fixes a worker discovers (lint config, hooks) get merged first and handed to the others as exact commits to apply, so the same fix isn't written N different ways.
-- Worker brief = the issue facts, the decided design, the binding repo rules, file:line pointers, required tests, any contract shared with a parallel worker (e.g. "add optional {runId, signal} to callServerTool options; the other worker passes them"), and the commit trailers.
+- Worker brief = the issue facts, the decided design, the binding repo rules, file:line pointers, required tests, any contract shared with a parallel worker (e.g. "add optional {runId, signal} to callServerTool options; the other worker passes them"), the commit trailers, and the explicit line "Do NOT run the full unit suite, the build or e2e; that runs once at the end."
 - Workers stay lean: the pre-commit checks (lint, typecheck, format) plus only the unit tests next to their change. No full suite, no build, no e2e. They update the specs their change affects, commit, don't push, and report the sha, a summary and their doubts.
-- Coordinator: review each diff (skim the key files), merge with --no-ff into the session branch, and resolve conflicts. Run independent workstreams in parallel; dependent ones in later waves. The coordinator runs NO heavy tests between waves (at most the fast pre-commit checks after a conflict resolution), so merge fallout is fixed once, not every wave.
+- Coordinator: review each diff (skim the key files), merge with --no-ff into the session branch, and resolve conflicts. Run independent workstreams in parallel; dependent ones in later waves. Between waves the coordinator runs NO suite, NO build and NO e2e, and spawns no test worker: at most the fast pre-commit checks after a conflict resolution. Merge fallout is fixed once, in the single final run, not every wave.
 - Remove worker worktrees after merging: lint at the repo root picks up their files (and builds).
-- Tests run ONCE: after the final merge into the session branch, just before merging into the target branch. That includes work the owner adds mid-run, which becomes more workstreams merged first.
-- That single integration worker runs the FULL suite on the session branch (lint, typecheck, format, unit, build, all e2e) and fixes what fails within each change's intent; anything that would change a design goes back to the owner. Only then merge the latest target branch in, merge into the target branch, and push both.
+- The single full run (see the hard rule): only once every workstream, including any the owner added mid-run, has merged into the session branch, one integration worker runs the FULL suite there (lint, typecheck, format, unit, build, all e2e) and fixes what fails within each change's intent; anything that would change a design goes back to the owner. Prepare its environment (databases, browsers, containers) while the waves run, but start the run itself only after the last merge. Then merge the latest target branch in, merge into the target branch, and push both.
 - Never bump versions; say in the summary when a MINOR bump is justified.
 
 ## 7. Keep the owner in the loop
