@@ -1,12 +1,8 @@
-pcp_format: 1
+pcp_format: 2
 version: 1
 name: Hetzner Cloud
 description: "Hetzner Cloud API (read-only): servers, primary/floating IPs, networks, firewalls, to identify which resource owns an IP address."
-baseUrl: https://api.hetzner.cloud/v1
-readOnly: false
-publicOnly: true
 auth:
   kind: header
   header: Authorization
   template: Bearer {{secret}}
-  secret: Hetzner Cloud API token
